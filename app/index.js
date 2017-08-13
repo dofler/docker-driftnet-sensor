@@ -24,7 +24,7 @@ function run() {
       // Check to see if there is any length to the filename var, if so,
       if (filename.length > 4){
         request.post({
-          url: process.env.DOFLER_ADDRESS + '/events/image',
+          url: process.env.DOFLER_ADDRESS + '/api/image',
           formData: {
             'image': {
               'value': fs.createReadStream(filename),

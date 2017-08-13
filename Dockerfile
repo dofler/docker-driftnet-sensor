@@ -1,6 +1,5 @@
 FROM node:6.10-alpine
 
-ENV PROJECT_PATH /driftnet
 ENV MONITOR_INTERFACE ""
 ENV IMAGE_PATH "/images"
 ENV DOFLER_ADDRESS ""
