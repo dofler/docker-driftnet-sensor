@@ -1,15 +1,48 @@
 const spawn = require('child_process').spawn
 const request = require('request')
+const chalk = require('chalk')
 const fs = require('fs')
 
+const parserName = 'Driftnet'
 const PID_FILE = '/var/run/driftnet.pid'
 var child
 
 function run() {
-  console.log('interface ', process.env.MONITOR_INTERFACE)
-  console.log('image path ', process.env.IMAGE_PATH)
-  child = spawn('driftnet', ['-a', '-i', process.env.MONITOR_INTERFACE, '-d', process.env.IMAGE_PATH])
-  console.log('driftnet subprocess initiated')
+  console.log(`${parserName}(${chalk.blue('startup')}) : Monitoring on ${process.env.MONITOR_INTERFACE}`)
+  console.log(`${parserName}(${chalk.blue('startup')}) : Using Image Path of ${process.env.IMAGE_PATH}`)
+  console.log(`${parserName}(${chalk.blue('startup')}) : Starting up child process`)
+  child = spawn('driftnet', [
+    '-a', '-i', process.env.MONITOR_INTERFACE, 
+    '-d', process.env.IMAGE_PATH
+  ])
+
+  // If we have been requested to shut down, then we should do so gracefully
+  process.on('SIGUSR2', function(){
+    console.log(`${parserName}(${chalk.blue('shutdown')}) : Shutting down child process`)
+    child.stdin.pause()
+    child.kill()
+    process.exit()
+  })
+
+  // Pass anything from standard error directly to the log.
+  child.stderr.on('data', function(data) {
+    console.log(`${parserName}(${chalk.yellow('stderr')}) : ${data.toString().replace(/(\r\n|\n|\r)/gm)}`)
+  })
+
+  // If driftnet exits for some reason, we should log the event to the console
+  // and then initiate a new instance to work from.
+  child.on('close', function(code) {
+    if (fs.existsSync(PID_FILE)){
+      fs.unlinkSync(PID_FILE)
+    }
+    console.log(`${parserName}(${chalk.yellow('close')}) : Child terminated with code ${code}`)
+    run()
+  })
+
+  // If driftnet is failing to start, then we need to log that event
+  child.on('error', function(error) {
+    console.log(`${parserName}(${chalk.red('close')}) : Could not start the child process`)
+  })
 
   // When driftnet outputs data to standard output, we want to capture that
   // data, interpret it, and hand it off the image to the web service
@@ -33,35 +66,14 @@ function run() {
           },
           function (err, resp, body) {
             if (err) {
-              console.error('Upload Failed for ' + filename)
+              console.error(`${parserName}(${chalk.red('upload')}) : Upload failed for ${filename}`)
             } else {
-              console.log('Uploaded ' + filename)
+              console.log(`${parserName}(${chalk.green('upload')}) : Uploaded ${filename}`)
             }
           }
         })
       }
     })
-  })
-
-  // If driftnet closes, then capture the exit code and relay that to the log.
-  child.on('close', function(code){
-    console.log('driftnet terminated with code ' + code)
-    if (fs.existsSync(PID_FILE)){
-      fs.unlinkSync(PID_FILE)
-    }
-    run()
-  })
-
-  // If driftnet fails to start, then lets log that behavior
-  child.on('error', function(){
-    console.log('driftnet subprocess failed to spawn')
-  })
-
-  // If we have been requested to shut down, then we should do so gracefully
-  process.on('SIGUSR2', function(){
-    child.stdin.pause()
-    child.kill()
-    process.exit()
   })
 }
 
