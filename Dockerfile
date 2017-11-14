@@ -5,8 +5,6 @@ ENV MONITOR_INTERFACE ""
 ENV IMAGE_PATH "/images"
 ENV DOFLER_ADDRESS ""
 
-COPY app /app
-
 RUN apk add --update --no-cache git build-base libpcap libpcap-dev                                              \
     && git clone https://github.com/bldewolf/driftnet.git /driftnet                                             \
     && cd /driftnet                                                                                             \
@@ -21,6 +19,7 @@ RUN apk add --update --no-cache git build-base libpcap libpcap-dev              
     && rm -rf /driftnet                                                                                         \
     && apk del --no-cache git build-base
 
+COPY app /opt/app
 VOLUME /images
 
-CMD ["node", "/app/index.js"]
+CMD ["node", "/opt/app/index.js"]
